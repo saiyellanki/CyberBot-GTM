@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ACBN Bot Mesh — Interactive Mind Map</title>
+<style>
+  :root {
+    --bg: #0a1628;
+    --panel: #12233a;
+    --card: #183049;
+    --ink: #e8f1fa;
+    --muted: #8aa0b8;
+    --accent: #3db8e8;
+    --l1: #2ecc71;
+    --l2: #f39c12;
+    --l3: #9b59b6;
+    --fw: #5dade2;
+    --hitl: #e74c3c;
+    --line: #2a4460;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: "Segoe UI", system-ui, sans-serif;
+    background: radial-gradient(ellipse at top, #132844 0%, var(--bg) 55%);
+    color: var(--ink); min-height: 100vh;
+  }
+  header {
+    padding: 1rem 1.5rem; border-bottom: 1px solid var(--line);
+    display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; justify-content: space-between;
+  }
+  header h1 { margin: 0; font-size: 1.15rem; font-weight: 650; letter-spacing: .02em; }
+  header p { margin: .2rem 0 0; color: var(--muted); font-size: .85rem; }
+  .badge {
+    display: inline-flex; gap: .75rem; flex-wrap: wrap; font-size: .75rem;
+  }
+  .badge span {
+    padding: .25rem .6rem; border-radius: 999px; border: 1px solid var(--line); background: var(--panel);
+  }
+  .badge .l1 { border-color: var(--l1); color: var(--l1); }
+  .badge .l2 { border-color: var(--l2); color: var(--l2); }
+  .badge .l3 { border-color: var(--l3); color: var(--l3); }
+  .badge .fw { border-color: var(--fw); color: var(--fw); }
+  .layout {
+    display: grid; grid-template-columns: 1.35fr 1fr; gap: 0; min-height: calc(100vh - 74px);
+  }
+  @media (max-width: 960px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+  .map-pane {
+    padding: 1rem; border-right: 1px solid var(--line); overflow: auto;
+  }
+  .hint { color: var(--muted); font-size: .8rem; margin: 0 0 .75rem; }
+  .branch {
+    margin-bottom: .85rem; border: 1px solid var(--line); border-radius: 12px;
+    background: rgba(18,35,58,.85); overflow: hidden;
+  }
+  .branch > summary {
+    list-style: none; cursor: pointer; padding: .85rem 1rem;
+    display: flex; align-items: center; gap: .65rem; font-weight: 600;
+  }
+  .branch > summary::-webkit-details-marker { display: none; }
+  .branch > summary::before {
+    content: "▸"; color: var(--muted); width: 1rem;
+  }
+  .branch[open] > summary::before { content: "▾"; }
+  .dot {
+    width: .7rem; height: .7rem; border-radius: 50%; flex-shrink: 0;
+  }
+  .nodes {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: .55rem; padding: 0 1rem 1rem;
+  }
+  .node {
+    text-align: left; cursor: pointer; border-radius: 10px; padding: .7rem .75rem;
+    border: 1px solid var(--line); background: var(--card); color: var(--ink);
+    transition: transform .12s ease, border-color .12s, box-shadow .12s;
+  }
+  .node:hover, .node.active {
+    transform: translateY(-1px);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px rgba(61,184,232,.35);
+  }
+  .node .title { font-size: .86rem; font-weight: 650; margin: 0 0 .25rem; }
+  .node .sub { font-size: .72rem; color: var(--muted); margin: 0; line-height: 1.35; }
+  .node .pill {
+    display: inline-block; margin-top: .4rem; font-size: .65rem; padding: .12rem .45rem;
+    border-radius: 999px; border: 1px solid var(--line); color: var(--muted);
+  }
+  .detail {
+    padding: 1.1rem 1.25rem 2rem; overflow: auto; background: rgba(10,22,40,.55);
+  }
+  .detail.empty {
+    color: var(--muted); display: flex; align-items: center; justify-content: center;
+    min-height: 280px; text-align: center; padding: 2rem;
+  }
+  .detail h2 { margin: 0 0 .35rem; font-size: 1.25rem; }
+  .meta { color: var(--muted); font-size: .82rem; margin-bottom: 1rem; }
+  .lod-tag {
+    display: inline-block; font-size: .72rem; font-weight: 700; padding: .2rem .55rem;
+    border-radius: 6px; margin-right: .4rem; letter-spacing: .04em;
+  }
+  .lod-tag.L1 { background: rgba(46,204,113,.15); color: var(--l1); }
+  .lod-tag.L2 { background: rgba(243,156,18,.15); color: var(--l2); }
+  .lod-tag.L3 { background: rgba(155,89,182,.15); color: var(--l3); }
+  .lod-tag.FW { background: rgba(93,173,226,.15); color: var(--fw); }
+  .lod-tag.HITL { background: rgba(231,76,60,.15); color: var(--hitl); }
+  .section { margin-top: 1rem; }
+  .section h3 {
+    margin: 0 0 .45rem; font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
+  }
+  .section p, .section li { font-size: .92rem; line-height: 1.45; }
+  .section ul { margin: .2rem 0 0; padding-left: 1.1rem; }
+  .section li { margin: .25rem 0; }
+  .skills {
+    display: flex; flex-wrap: wrap; gap: .4rem;
+  }
+  .skills span {
+    font-size: .75rem; padding: .35rem .55rem; border-radius: 8px;
+    background: #0f2136; border: 1px solid var(--line); color: var(--ink);
+  }
+  .ccf { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .78rem; color: var(--accent); }
+  footer {
+    border-top: 1px solid var(--line); padding: .65rem 1.25rem; color: var(--muted); font-size: .72rem;
+  }
+  .search {
+    width: min(280px, 100%); padding: .45rem .7rem; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+  }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>ACBN Bot Mesh — Interactive Mind Map</h1>
+    <p>Click any node for line of defense, risks, controls, and bot skills. Synthetic PoC reference: Ridgeline Demo Bank.</p>
+  </div>
+  <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;">
+    <input class="search" id="search" placeholder="Filter bots / risks…" />
+    <div class="badge">
+      <span class="l1">1LoD Ops</span>
+      <span class="l2">2LoD Risk</span>
+      <span class="l3">3LoD Audit</span>
+      <span class="fw">Framework</span>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+  <div class="map-pane" id="map"></div>
+  <aside class="detail empty" id="detail">
+    <div>
+      <strong>Select a node</strong><br/>
+      Explore the Cybersecurity Risk Manager hub, each LoD branch, trust boundaries, HITL cast, or a specialist bot.
+    </div>
+  </aside>
+</div>
+<footer>
+  Confidential GTM aid · Phase 2 PoC default (evidence + HITL; Phase 4 autonomy grants empty) · No live AWS/Azure/OFAC/Q2/Fiserv in lab fixtures · SCN-KEV-JUMP-001 reference scenario available
+</footer>
+
+<script>
+const NODES = {
+  hub: {
+    id: 'hub', label: 'ACBN Bot Mesh', lod: 'FW', kind: 'Framework',
+    desc: 'Autonomous Cybersecurity Bot Network — a Three Lines of Defense mesh that harvests control evidence from telemetry, queues high-impact actions for HITL, and preserves examiner-ready hash-chained artefacts without unsupervised production mutation.',
+    risks: ['AI/automation collapsing SoD', 'Silent skips on incomplete CMDB', 'Unauthorized prod mutations', 'Examiner distrust of bot evidence'],
+    controls: ['3LoD segregation', 'Action broker + HITL tokens', 'WORM hash-chained vault', 'registration_state & owner_confidence mutate gates', 'Phase 4 empty by default'],
+    skills: ['Orchestration', 'Policy engine', 'Evidence vault', 'HITL workbench', 'IRM/CCF objects'],
+    ccf: 'Platform control plane'
+  },
+  crm: {
+    id: 'crm', label: 'Cybersecurity Risk Manager', lod: 'FW', kind: 'Orchestrator bot',
+    desc: 'Accountable orchestrator for the bot mesh. Routes scenarios across LoD channels, records HITL dispositions, and prevents Phase 4 autonomy grants without CISO countersignature.',
+    risks: ['Uncoordinated bot fan-out', 'Premature autonomy', 'Lost residual-risk ownership'],
+    controls: ['Scenario IDs', 'Lean-cast tasking', 'Pause/resume mesh', 'CISO grant gate'],
+    skills: ['Multi-agent orchestration', 'HITL role-play (Jordan/Priya/Morgan/Dana)', 'GTM evidence packaging', 'Risk narrative'],
+    ccf: 'Cross-cutting'
+  },
+  trust: {
+    id: 'trust', label: 'Trust Boundaries', lod: 'FW', kind: 'Framework',
+    desc: 'Hard boundaries B0–B5: collectors read-only; broker allowlists HITL; vault is WORM; LLM mapper has no prod tools; 3LoD deny-all on action-broker verbs.',
+    risks: ['Credential leakage to LLMs', 'Cross-line impersonation', 'Vault truncation'],
+    controls: ['B0–B5 matrix', 'Per-bot least privilege', 'prev_event_hash chain', 'No raw NPI in prompts'],
+    skills: ['Boundary design', 'Broker policy', 'Vault integrity'],
+    ccf: 'CCF-AU-003 / platform'
+  },
+  hitl: {
+    id: 'hitl', label: 'HITL Cast & Gates', lod: 'HITL', kind: 'Framework',
+    desc: 'Human-in-the-Loop is mandatory for identity/network/core writes, unregistered/low-confidence assets, SOX ITGC, sanctions hits, low mapping confidence, and large blast radius.',
+    risks: ['Bot self-approve SoD clash', 'Auto-clear sanctions', 'Fake-green CCT closes'],
+    controls: ['Jordan Hale 1LoD', 'Priya Nair 2LoD', 'Morgan Ellis 3LoD', 'Dana Okonkwo CISO', 'Dual-control tokens'],
+    skills: ['Approve / defer / reject', 'Attest mapping drafts', 'Emergency CAB path', 'Phase 4 grant authority'],
+    ccf: 'Governance'
+  },
+  phase: {
+    id: 'phase', label: 'Autonomy Phases', lod: 'FW', kind: 'Framework',
+    desc: 'Phase 1 discover → Phase 2 evidence+HITL (PoC default) → Phase 3 HITL remediation via ITSM → Phase 4 scoped allowlisted autonomy only after CISO grant.',
+    risks: ['Skipping to Phase 4', 'Allowlist creep'],
+    controls: ['autonomy_grants=[] in PoC', 'unauthorized_prod_mutations==0', 'CISO countersign'],
+    skills: ['Phase gating', 'Allowlist design'],
+    ccf: 'Operating model'
+  },
+  scenario: {
+    id: 'scenario', label: 'SCN-KEV-JUMP-001', lod: 'FW', kind: 'Reference scenario',
+    desc: 'End-to-end synthetic scenario: KEV CVE-2024-0001 on prod Azure jump host rhb-az-jump-01. Mesh E2E PASS with residuals left open (correct Phase 2 behavior).',
+    risks: ['KEV on NPI-adjacent jump', 'SOC detection gap', 'IR program unreadiness'],
+    controls: ['Human CAB patch only', 'CCT SI-002 fail open', 'Trail chain_ok', 'Examiner excerpt'],
+    skills: ['Lean 9-bot cast', 'Shared scenario artefacts', 'Closeout memo'],
+    ccf: 'CCF-SI-002 (+ CM/AC compounding)'
+  },
+
+  // 1LoD
+  discovery: {
+    id: 'discovery', label: 'ACBN Discovery', lod: 'L1', kind: '1LoD bot', bot_id: 'discovery',
+    desc: 'Adaptive asset discovery. Incomplete CMDB is not a stop for reads. Classifies registered / partial / unregistered / shadow and sets mutate_allowed only when registered and owner_confidence ≥ 0.80.',
+    risks: ['Blind spots from incomplete CMDB', 'Mutating unknown assets', 'Shadow SaaS'],
+    controls: ['Quarantine class', 'Owner confidence scoring', 'Keep unregistered in population'],
+    skills: ['CMDB enrich', 'Inventory integrity KPIs', 'Registration state machine'],
+    ccf: 'CCF-AM-001'
+  },
+  telemetry: {
+    id: 'telemetry', label: 'Telemetry Ingest', lod: 'L1', kind: '1LoD bot', bot_id: 'telemetry-ingest',
+    desc: 'B0 collector plane. Normalizes read-only streams and vendor file-drops; emits inputs_hash into the vault. Never mutates.',
+    risks: ['Blind collectors', 'Live API sprawl', 'Missing evidence hash'],
+    controls: ['Read-only B0', 'Synthetic/file-drop for agentless cores', 'Heartbeat'],
+    skills: ['Collector scheduling', 'Hashing', 'Coverage attestation'],
+    ccf: 'Platform / CCF-AU-003 inputs'
+  },
+  cis: {
+    id: 'cis', label: 'CIS Drift Sentinel', lod: 'L1', kind: '1LoD bot', bot_id: 'cis-drift-sentinel',
+    desc: 'Detects configuration drift vs CIS / signed baselines. Unregistered assets remain in the test population. Proposes remediate_cis_drift with auto_apply=false.',
+    risks: ['Public S3 / open admin SG', 'Baseline unknown skipped', 'Auto-harden unregistered'],
+    controls: ['Severity scoring', 'HITL on unregistered/low confidence', 'Vault CIS evidence'],
+    skills: ['CIS rule diff', 'Multi-cloud baseline', 'IRM issue open'],
+    ccf: 'CCF-CM-002'
+  },
+  saas: {
+    id: 'saas', label: 'SaaS Config Drift', lod: 'L1', kind: '1LoD bot', bot_id: 'saas-config-drift',
+    desc: 'Salesforce Shield/OWD, Okta app assignment, and shadow-SaaS config drift vs signed baselines.',
+    risks: ['Shadow SaaS data leakage', 'Over-permissive OWD', 'Unregistered apps'],
+    controls: ['Shadow quarantine', 'HITL before tenant mutate', 'Baseline bundle'],
+    skills: ['SaaS posture', 'Okta/Salesforce config read', 'Drift tickets'],
+    ccf: 'CCF-CM-002 / CCF-AM-001'
+  },
+  iam: {
+    id: 'iam', label: 'IAM Entitlement Auditor', lod: 'L1', kind: '1LoD bot', bot_id: 'iam-entitlement-auditor',
+    desc: 'Flags orphaned accounts, unused_90d grants, standing admin, and SoD clashes. Proposes revocation_diff with auto_apply=false. Never self-applies SoD fixes.',
+    risks: ['Standing admin', 'Orphaned contractors', 'SoD clash (deploy + approve)'],
+    controls: ['SOX HITL', 'Peer dual-control', 'No bot IAM apply in Phase 2'],
+    skills: ['Entitlement review', 'SoD detection', 'Revocation packaging'],
+    ccf: 'CCF-AC-001 / CCF-AC-006'
+  },
+  patch: {
+    id: 'patch', label: 'Patch Verify Bot', lod: 'L1', kind: '1LoD bot', bot_id: 'patch-verify-bot',
+    desc: 'Verifies patch state from telemetry. KEV is P1. Missing agent + missing vendor attestation = coverage_gap (not pass).',
+    risks: ['Open KEV on prod', 'Agentless false pass', 'Bot auto-patch'],
+    controls: ['KEV HITL', 'coverage_gap ≠ pass', 'Emergency CAB human path'],
+    skills: ['KEV prioritization', 'Agentless attestation check', 'Patch evidence'],
+    ccf: 'CCF-SI-002'
+  },
+  vuln: {
+    id: 'vuln', label: 'Vulnerability Management', lod: 'L1', kind: '1LoD bot', bot_id: 'vulnerability-management',
+    desc: 'VM lifecycle beyond verify: scan coverage %, exception aging, SLA breach, risk-accept tickets, KEV queue hygiene.',
+    risks: ['SLA breach on critical/KEV', 'Eternal exceptions', 'Coverage gaps'],
+    controls: ['Exception expiry', 'SLA clocks', 'HITL for prod exceptions'],
+    skills: ['Queue hygiene', 'Coverage analytics', 'Risk-accept tracking'],
+    ccf: 'CCF-SI-002 / RA-5'
+  },
+  cloud: {
+    id: 'cloud', label: 'Cloud Security Control Tester', lod: 'L1', kind: '1LoD bot', bot_id: 'cloud-security-control-tester',
+    desc: 'Beyond-CIS cloud posture: public exposure, encryption (PMK vs CMK), network/admin paths, identity perimeter. Complements CIS Drift.',
+    risks: ['Jump-host exposure', 'PMK instead of CMK', 'Standing cloud/Entra admin'],
+    controls: ['Compound risk with KEV', 'Ticket-only harden', 'HITL on SOX/prod'],
+    skills: ['Posture scoring', 'Perimeter mapping', 'Harden proposals'],
+    ccf: 'CCF-CM-002 / AC / SI compounding'
+  },
+
+  // 2LoD
+  ofac: {
+    id: 'ofac', label: 'OFAC Sanctions Screener', lod: 'L2', kind: '2LoD bot', bot_id: 'ofac-sanctions-screener',
+    desc: 'Screens vendors/privileged identities against SYNTHETIC SDN only. Hits always HITL-blocked and never auto-clear.',
+    risks: ['False clear of sanctioned party', 'Live SDN misuse in lab', 'Payment continuation on hit'],
+    controls: ['Hard HITL', 'BSA-AML escalate', 'Synthetic list only'],
+    skills: ['Name matching', 'Case escalation', 'CCT SA evidence'],
+    ccf: 'CCF-SA-001'
+  },
+  reg: {
+    id: 'reg', label: 'Reg Change Mapper', lod: 'L2', kind: '2LoD bot', bot_id: 'reg-change-mapper',
+    desc: 'Maps regulatory feed items to CCF drafts with confidence. Status stays draft until 2LoD attests. Inconclusive ≠ pass.',
+    risks: ['Auto-write bad mappings', 'Treating draft as attested', 'Low-confidence pass'],
+    controls: ['Attest threshold', 'No CCF write without attest', 'Priya Nair gate'],
+    skills: ['Obligation parsing', 'CCF mapping', 'Confidence scoring'],
+    ccf: 'CCF-RM-001'
+  },
+  cct: {
+    id: 'cct', label: 'CCT Evidence Harvester', lod: 'L2', kind: '2LoD bot', bot_id: 'cct-evidence-harvester',
+    desc: 'Continuous control testing from vault payloads (not screenshots). Cannot close fails without named 1LoD owner + 2LoD reviewer. Leaves AU-003 to 3LoD.',
+    risks: ['Fake-green closes', 'Screenshot theater', '2LoD testing independence control'],
+    controls: ['close_allowed=false default', 'Inconclusive ≠ pass', 'Owner mapping'],
+    skills: ['Vault-backed CCT', 'Pass/fail/inconclusive scoring', 'IRM updates'],
+    ccf: 'Multiple CCF (AC/CM/SI/AM/SA/RM)'
+  },
+  tprm: {
+    id: 'tprm', label: 'TPRM Vendor Pulse', lod: 'L2', kind: '2LoD bot', bot_id: 'tprm-vendor-pulse',
+    desc: 'Continuous third-party risk pulse using SIG/CAIQ-style questionnaires plus synthetic continuous scan signals.',
+    risks: ['Vendor concentration', 'Stale questionnaires', 'Unmonitored fourth parties'],
+    controls: ['CCF-SA-002 mapping', 'Residual risk issues', 'No prod IAM writes'],
+    skills: ['SIG/CAIQ intake', 'Vendor scoring', 'FFIEC TPRM language'],
+    ccf: 'CCF-SA-002'
+  },
+  privacy: {
+    id: 'privacy', label: 'Privacy Controls Monitor', lod: 'L2', kind: '2LoD bot', bot_id: 'privacy-controls-monitor',
+    desc: 'Monitors synthetic privacy control outcomes: NPI class access, tenant isolation, AI-copilot training opt-out flags. Refuses real customer data.',
+    risks: ['NPI over-sharing', 'AI training on customer data', 'Real data in lab'],
+    controls: ['Synthetic-only NPI', 'Policy-gap IRM issues', 'Privacy officer escalate'],
+    skills: ['Privacy CCT', 'Tenant isolation checks', 'AI-copilot policy flags'],
+    ccf: 'AC/AM privacy overlays'
+  },
+  soc: {
+    id: 'soc', label: 'SOC Control Tester', lod: 'L2', kind: '2LoD bot', bot_id: 'soc-control-tester',
+    desc: 'Independently tests SOC detection/response controls: MITRE use-case coverage, alert SLA, SOAR playbook currency, tuning debt. Does not mute/tune rules.',
+    risks: ['Collectors ≠ detection', 'Missing P1 clocks', 'Tuning debt'],
+    controls: ['Use-case attestation', 'CCT fail open', 'No mute/tune'],
+    skills: ['Detection coverage testing', 'SLA evidence', 'MITRE mapping'],
+    ccf: 'SOC tooling / SI-related'
+  },
+  dlp: {
+    id: 'dlp', label: 'DLP Control Tester', lod: 'L2', kind: '2LoD bot', bot_id: 'dlp-control-tester',
+    desc: 'Tests the DLP tool/control plane (policy coverage, quarantine actions, synthetic false-negative probes). Distinct from privacy outcome monitoring.',
+    risks: ['DLP policy gaps', 'False sense of blocking', 'Exception aging'],
+    controls: ['Synthetic probes only', 'HITL on policy change', 'Exception aging CCT'],
+    skills: ['DLP control testing', 'Channel coverage', 'Probe design'],
+    ccf: 'Data protection controls'
+  },
+  insider: {
+    id: 'insider', label: 'Insider Risk Program', lod: 'L2', kind: '2LoD bot', bot_id: 'insider-risk-program',
+    desc: 'Tests insider-risk program controls: policy currency, investigation SLA, SoD between detector and adjudicator, privacy minimization. No real HR/UEBA.',
+    risks: ['Surveillance overreach', 'Detector=adjudicator SoD break', 'Stale policy'],
+    controls: ['Program CCT', 'SoD checks', 'Refuse real employee monitoring'],
+    skills: ['Program testing', 'Investigation SLA', 'Privacy-minimization review'],
+    ccf: 'Insider risk program'
+  },
+  ir: {
+    id: 'ir', label: 'Incident Response Program', lod: 'L2', kind: '2LoD bot', bot_id: 'incident-response-program',
+    desc: 'Tests IR program readiness: playbooks, severity matrix, tabletop evidence, MTTD/MTTR, FI regulator clocks. Never executes containment.',
+    risks: ['Missing P1 playbooks', 'Stale tabletops', 'No FI notification clock'],
+    controls: ['Program FAIL ≠ containment', 'Residual risk register', 'RACI gaps to 1LoD'],
+    skills: ['Playbook currency', 'Tabletop evidence', 'MTT* KPIs'],
+    ccf: 'IR program / incident controls'
+  },
+
+  // 3LoD
+  sampler: {
+    id: 'sampler', label: 'Independent Sampler', lod: 'L3', kind: '3LoD bot', bot_id: 'independent-sampler',
+    desc: 'Independent re-performance from vault hashes only. Opens audit observations on mismatch. remediation_attempted must stay false.',
+    risks: ['Audit relying on 1LoD re-runs', 'Hidden independence delta', '3LoD remediating'],
+    controls: ['Sample seeds', 'Deny action broker', 'Observations-only queue'],
+    skills: ['Statistical sample', 'Re-performance', 'Independence delta'],
+    ccf: 'CCF-AU-003 + sampled CCF'
+  },
+  trail: {
+    id: 'trail', label: 'Trail Integrity Verifier', lod: 'L3', kind: '3LoD bot', bot_id: 'trail-integrity-verifier',
+    desc: 'Verifies vault hash-chain continuity, detects truncation, validates collector IDs / policy stamps.',
+    risks: ['Evidence truncation', 'Broken prev_event_hash', 'Missing policy_version'],
+    controls: ['Full-chain recompute', 'Informational observations', 'Read-only'],
+    skills: ['Hash verification', 'Gap detection', 'AU-003 observations'],
+    ccf: 'CCF-AU-003'
+  },
+  examiner: {
+    id: 'examiner', label: 'Examiner Pack Builder', lod: 'L3', kind: '3LoD bot', bot_id: 'examiner-pack-builder',
+    desc: 'Assembles examiner-ready packs from vault hashes and IRM/KPI snapshots. Cannot close 1LoD/2LoD items.',
+    risks: ['Unauditable narrative packs', 'Closing ops issues from audit'],
+    controls: ['Vault+KPI only', 'Independence statement', 'No broker'],
+    skills: ['Packaging', 'KPI citation', 'Examiner narrative'],
+    ccf: 'Examiner liaison'
+  }
+};
+
+const TREE = [
+  {
+    id: 'fw', title: 'Framework & Governance', color: 'var(--fw)',
+    nodes: ['hub', 'crm', 'trust', 'hitl', 'phase', 'scenario']
+  },
+  {
+    id: 'l1', title: '1LoD — Operations & Security', color: 'var(--l1)',
+    nodes: ['discovery', 'telemetry', 'cis', 'saas', 'iam', 'patch', 'vuln', 'cloud']
+  },
+  {
+    id: 'l2', title: '2LoD — Risk, Compliance & Programs', color: 'var(--l2)',
+    nodes: ['ofac', 'reg', 'cct', 'tprm', 'privacy', 'soc', 'dlp', 'insider', 'ir']
+  },
+  {
+    id: 'l3', title: '3LoD — Internal Audit', color: 'var(--l3)',
+    nodes: ['sampler', 'trail', 'examiner']
+  }
+];
+
+const mapEl = document.getElementById('map');
+const detailEl = document.getElementById('detail');
+let activeId = null;
+
+function lodClass(lod) {
+  if (lod === 'L1') return 'L1';
+  if (lod === 'L2') return 'L2';
+  if (lod === 'L3') return 'L3';
+  if (lod === 'HITL') return 'HITL';
+  return 'FW';
+}
+
+function renderMap(filter = '') {
+  const q = filter.trim().toLowerCase();
+  mapEl.innerHTML = '<p class="hint">Expand a branch, then click a node. Sub-nodes are specialist bots or framework pillars.</p>';
+  TREE.forEach(branch => {
+    const ids = branch.nodes.filter(id => {
+      if (!q) return true;
+      const n = NODES[id];
+      const blob = [n.label, n.desc, n.bot_id, n.kind, ...(n.risks||[]), ...(n.controls||[]), ...(n.skills||[]), n.ccf].join(' ').toLowerCase();
+      return blob.includes(q);
+    });
+    if (!ids.length) return;
+    const det = document.createElement('details');
+    det.className = 'branch';
+    det.open = !!q || branch.id === 'fw' || branch.id === 'l1';
+    const sum = document.createElement('summary');
+    sum.innerHTML = `<span class="dot" style="background:${branch.color}"></span>${branch.title} <span style="color:var(--muted);font-weight:500;font-size:.8rem">(${ids.length})</span>`;
+    det.appendChild(sum);
+    const grid = document.createElement('div');
+    grid.className = 'nodes';
+    ids.forEach(id => {
+      const n = NODES[id];
+      const btn = document.createElement('button');
+      btn.className = 'node' + (activeId === id ? ' active' : '');
+      btn.type = 'button';
+      btn.dataset.id = id;
+      btn.innerHTML = `<div class="title">${n.label}</div><p class="sub">${n.kind}${n.bot_id ? ' · ' + n.bot_id : ''}</p><span class="pill">${n.lod}</span>`;
+      btn.addEventListener('click', () => showDetail(id));
+      grid.appendChild(btn);
+    });
+    det.appendChild(grid);
+    mapEl.appendChild(det);
+  });
+}
+
+function showDetail(id) {
+  activeId = id;
+  const n = NODES[id];
+  detailEl.classList.remove('empty');
+  detailEl.innerHTML = `
+    <div>
+      <span class="lod-tag ${lodClass(n.lod)}">${n.lod === 'L1' ? '1LoD' : n.lod === 'L2' ? '2LoD' : n.lod === 'L3' ? '3LoD' : n.lod}</span>
+      <span class="meta">${n.kind}${n.bot_id ? ' · <span class="ccf">' + n.bot_id + '</span>' : ''}</span>
+      <h2>${n.label}</h2>
+      <p class="meta">Control mapping: <span class="ccf">${n.ccf || '—'}</span></p>
+      <div class="section"><h3>Description</h3><p>${n.desc}</p></div>
+      <div class="section"><h3>Risks addressed / surfaced</h3><ul>${n.risks.map(r => `<li>${r}</li>`).join('')}</ul></div>
+      <div class="section"><h3>Controls & guardrails</h3><ul>${n.controls.map(c => `<li>${c}</li>`).join('')}</ul></div>
+      <div class="section"><h3>Bot / node skills</h3><div class="skills">${n.skills.map(s => `<span>${s}</span>`).join('')}</div></div>
+    </div>`;
+  document.querySelectorAll('.node').forEach(el => {
+    el.classList.toggle('active', el.dataset.id === id);
+  });
+}
+
+document.getElementById('search').addEventListener('input', (e) => renderMap(e.target.value));
+renderMap();
+showDetail('hub');
+</script>
+</body>
+</html>
